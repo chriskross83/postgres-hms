@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-hms-set
+spec:
+  selector:
+    matchLabels:
+      app: postgres-hms
+  serviceName: "postgres-hms"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgres-hms
+    spec:
+      containers:
+      - name: postgres-hms
+        image: chriskross83/postgres-hms:latest
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-password
+              key: POSTGRES_PASSWORD
+        ports:
+        - containerPort: 5432
+          name: psql
+        volumeMounts:
+        - name: pgdata
+          mountPath: /var/lib/postgresql/data
+        - name: hive-schema-3.1.0.postgres.sql
+          mountpath: /hive/
+        - name: init-hive-db.sh
+          mountpath: /docker-entrypoint-initdb.d/
+    volumes:
+    - name: hive-schema-3.1.0.postgres.sql
+      configMap:
+        name: postgres-hms-config
+        items:
+        - key: hive-schema-config
+          path: hive-schema-3.1.0.postgres.sql
+    - name: init-hive-db.sh
+      configMap:
+        name: postgres-hms-config
+        items:
+        - key: init-config
+          path: init-hive-db.sh
+    volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: "standard"
+        resources:
+          requests:
+            storage: 1Gi
